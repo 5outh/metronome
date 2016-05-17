@@ -33,6 +33,7 @@ afplay :: MonadIO io => Text -> io ExitCode
 afplay file = proc "afplay" [file] empty
 
 toWord :: Int -> Text
+toWord 6 = "sick"
 toWord 7 = "sev"
 toWord 11 = "lev"
 toWord n = pack (show n)
@@ -45,9 +46,10 @@ timeCycle (num, _) ands_ =
 -- | Do an action, then (asynchronously) wait the amount of time until the next
 -- beat.
 bpmWait :: Int -> IO a -> IO ()
-bpmWait bpm_ io =
-  bracket (forkIO (void io)) delay killThread
-  where delay _ = delaySeconds (60 / fromIntegral bpm_)
+bpmWait bpm_ io = do
+  threadId <- forkIO (void io)
+  delaySeconds (60 / fromIntegral bpm_)
+  killThread threadId
 
 -- /tmp/.sounds/n-120-ands?.aiff
 fileName :: Config -> Text -> Text
@@ -63,26 +65,32 @@ genSounds config@Config{..} words_ = do
   M.fromList <$> mapM sayFile (nub words_)
   where sayFile word = do
           let file = fileName config word
-              rate = pack (show $ bpm * 3)
-          void $ say ["--output-file=" <> file, "--rate=" <> rate] word
+          void $ say ["--output-file=" <> file, "--rate=600"] word
           pure (word, file)
 
-cyclePlay :: Config -> [Text] -> SoundMap -> IO ()
-cyclePlay Config{..} words_ sounds =
-  forM_ (cycle words_) $ \word -> do
-    let sound = M.lookup word sounds
-    case sound of
+play :: Config -> [Text] -> SoundMap -> IO ()
+play Config{..} words_ sounds =
+  forM_ words_ $ \word ->
+    case M.lookup word sounds of
       Nothing -> error "sound file not found!"
       Just sound_ -> bpmWait bpm (forkIO . void $ afplay sound_)
 
 -- The idea here will be to generate .aiff files from `say`
 -- into a shared folder, then call afplay the-aiff-file when necessary
-realMetronome :: Config -> IO ()
-realMetronome config@Config{..} = do
+metronome_ :: Config -> ([Text] -> [Text]) -> IO ()
+metronome_ config@Config{..} f = do
   let words_ = timeCycle time ands
       bpm_ = if ands then bpm * 2 else bpm
   sounds <- genSounds config words_
-  cyclePlay config{ bpm = bpm_ } words_ sounds
+  play config{ bpm = bpm_ } (f words_) sounds
+
+metronome1, metronome :: Config -> IO ()
+metronome1 = (`metronome_` id)
+metronome = (`metronome_` cycle)
+
+test = do
+  forM_ [40,60..400] $ \bpm_ -> do
+    metronome1 defaultConfig{ bpm=bpm_ }
 
 main :: IO ()
-main = realMetronome defaultConfig
+main = metronome defaultConfig

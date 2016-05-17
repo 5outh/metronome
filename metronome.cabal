@@ -25,4 +25,5 @@ executable metronome
     , turtle
     , text
     , containers
+    , directory
   default-language: Haskell2010

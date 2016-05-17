@@ -18,23 +18,13 @@ import Data.Maybe
 
 type SoundMap = M.Map Text Text
 
--- subdivisions:
--- 1, 2, 3, 4, 5, 6, 7, 8,
--- 1 2 3 4
--- 1 n 2 n 3 n 4 n
--- 1 a let 2 a let 3 a let 4 a let
--- 1 e n a 2 e n a 4 e n a 4 e n a
--- 1 ka ta ka ta 2 ka ta ka ta ...
--- 1 ta la ta li ta
--- 1 ka di mi ta ka ta
-
 type Subdivision = Int
 
 getSubdivisionWords :: Subdivision -> [Text]
 getSubdivisionWords = T.words . \case
   1 -> ""
   2 -> "n"
-  3 -> "a let"
+  3 -> "uh let"
   4 -> "e n uh"
   5 -> "ka ta ka ta"
   6 -> "ta la ta li ta"
@@ -77,16 +67,11 @@ toWord 7 = "sev"
 toWord 11 = "lev"
 toWord n = pack (show n)
 
-thingIWant :: [a] -> [a] -> [a]
-thingIWant beats subdivs = foldr (\beat -> (++) (beat:subdivs)) [] beats
-
 beatCycle :: Int -> Subdivision -> [Text]
 beatCycle beats_ subdivision_ =
-  thingIWant beats subdivisionWords
+  intercalate subdivisionWords (pure <$> beats) ++ subdivisionWords
   where
-    beats :: [Text]
     beats = map toWord [1..beats_]
-    subdivisionWords :: [Text]
     subdivisionWords = getSubdivisionWords subdivision_
 
 -- | Do an action, then (asynchronously) wait the amount of time until the next
@@ -97,7 +82,7 @@ bpmWait bpm_ io = do
   delaySeconds (60 / fromIntegral bpm_ :: Double)
   killThread threadId
 
--- /tmp/.sounds/n-120-subdivision?.aiff
+-- /tmp/.sounds/n-120-subdivision.aiff
 fileName :: Config -> Text -> Text
 fileName Config{..} word =
   "/tmp/.sounds/" <> word <> "-" <> conf <> ".aiff"

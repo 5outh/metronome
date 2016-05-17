@@ -26,4 +26,5 @@ executable metronome
     , text
     , containers
     , directory
+    , optparse-generic
   default-language: Haskell2010

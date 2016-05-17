@@ -1,7 +1,10 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Main where
 
+import Options.Generic
 import System.Directory
 import Control.Exception
 import Control.Concurrent
@@ -11,17 +14,30 @@ import Turtle hiding (time)
 import Data.Text (pack)
 import qualified Data.Text.IO as T
 import qualified Data.Map as M
+import Data.Maybe
 
 type SoundMap = M.Map Text Text
 
+data Options = Options
+  { beats :: Maybe Int
+  , bpm :: Maybe Int
+  , ands :: Maybe Bool
+  } deriving (Generic, Show, Eq)
+
+instance ParseRecord Options
+
 data Config = Config
-  { time :: !(Int, Int)
-  , bpm :: !Int
-  , ands :: !Bool
+  { cBeats :: !Int
+  , cBpm :: !Int
+  , cAnds :: !Bool
   } deriving (Show, Eq)
 
 defaultConfig :: Config
-defaultConfig = Config (4, 4) 120 True
+defaultConfig = Config 4 120 True
+
+fromOpts :: Options -> Config
+fromOpts Options{..} =
+  Config (fromMaybe 4 beats) (fromMaybe 120 bpm) (fromMaybe False ands)
 
 delaySeconds :: RealFrac n => n -> IO ()
 delaySeconds n = threadDelay (round $ 1000000 * n)
@@ -38,10 +54,10 @@ toWord 7 = "sev"
 toWord 11 = "lev"
 toWord n = pack (show n)
 
-timeCycle :: (Int, Int) -> Bool -> [Text]
-timeCycle (num, _) ands_ =
+beatCycle :: Int -> Bool -> [Text]
+beatCycle beats_ ands_ =
   if ands_ then intersperse "n" beats ++ ["n"] else beats
-  where beats = map toWord [1..num]
+  where beats = map toWord [1..beats_]
 
 -- | Do an action, then (asynchronously) wait the amount of time until the next
 -- beat.
@@ -55,7 +71,7 @@ bpmWait bpm_ io = do
 fileName :: Config -> Text -> Text
 fileName Config{..} word =
   "/tmp/.sounds/" <> word <> "-" <> conf <> ".aiff"
-  where conf = pack (show bpm) <> "-" <> if ands then "-a" else ""
+  where conf = pack (show cBpm) <> "-" <> if cAnds then "-a" else ""
 
 genSounds :: Config -> [Text] -> IO SoundMap
 genSounds config@Config{..} words_ = do
@@ -63,6 +79,7 @@ genSounds config@Config{..} words_ = do
   unless exists $ mkdir "/tmp/.sounds"
 
   M.fromList <$> mapM sayFile (nub words_)
+
   where sayFile word = do
           let file = fileName config word
           void $ say ["--output-file=" <> file, "--rate=600"] word
@@ -73,24 +90,20 @@ play Config{..} words_ sounds =
   forM_ words_ $ \word ->
     case M.lookup word sounds of
       Nothing -> error "sound file not found!"
-      Just sound_ -> bpmWait bpm (forkIO . void $ afplay sound_)
+      Just sound_ -> bpmWait cBpm (forkIO . void $ afplay sound_)
 
 -- The idea here will be to generate .aiff files from `say`
 -- into a shared folder, then call afplay the-aiff-file when necessary
 metronome_ :: Config -> ([Text] -> [Text]) -> IO ()
 metronome_ config@Config{..} f = do
-  let words_ = timeCycle time ands
-      bpm_ = if ands then bpm * 2 else bpm
+  let words_ = beatCycle cBeats cAnds
+      bpm_ = if cAnds then cBpm * 2 else cBpm
   sounds <- genSounds config words_
-  play config{ bpm = bpm_ } (f words_) sounds
+  play config{ cBpm = bpm_ } (f words_) sounds
 
 metronome1, metronome :: Config -> IO ()
 metronome1 = (`metronome_` id)
 metronome = (`metronome_` cycle)
 
-test = do
-  forM_ [40,60..400] $ \bpm_ -> do
-    metronome1 defaultConfig{ bpm=bpm_ }
-
 main :: IO ()
-main = metronome defaultConfig
+main = getRecord "Metronome" >>= metronome . fromOpts

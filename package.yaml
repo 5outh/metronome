@@ -15,6 +15,7 @@ dependencies:
   - text
   - containers
   - directory
+  - optparse-generic
 
 executables:
   metronome:

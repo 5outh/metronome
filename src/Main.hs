@@ -78,8 +78,7 @@ toWord 11 = "lev"
 toWord n = pack (show n)
 
 thingIWant :: [a] -> [a] -> [a]
-thingIWant (beat:beats) subdivs = (beat:subdivs) ++ thingIWant beats subdivs
-thingIWant [] subdivs = subdivs
+thingIWant beats subdivs = foldr (\beat -> (++) (beat:subdivs)) [] beats
 
 beatCycle :: Int -> Subdivision -> [Text]
 beatCycle beats_ subdivision_ =

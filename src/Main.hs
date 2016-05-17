@@ -1,18 +1,15 @@
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
 import Options.Generic
 import System.Directory
-import Control.Exception
 import Control.Concurrent
 import Control.Monad
 import Data.List
 import Turtle hiding (time)
 import Data.Text (pack)
-import qualified Data.Text.IO as T
 import qualified Data.Map as M
 import Data.Maybe
 
@@ -64,7 +61,8 @@ beatCycle beats_ ands_ =
 bpmWait :: Int -> IO a -> IO ()
 bpmWait bpm_ io = do
   threadId <- forkIO (void io)
-  delaySeconds (60 / fromIntegral bpm_)
+  delaySeconds (60 / fromIntegral bpm_ :: Double)
+  killThread threadId
 
 -- /tmp/.sounds/n-120-ands?.aiff
 fileName :: Config -> Text -> Text
@@ -93,11 +91,11 @@ play Config{..} words_ sounds =
 -- The idea here will be to generate .aiff files from `say`
 -- into a shared folder, then call afplay the-aiff-file when necessary
 metronome_ :: Config -> ([Text] -> [Text]) -> IO ()
-metronome_ config@Config{..} f = do
+metronome_ config@Config{..} modifyWords = do
   let words_ = beatCycle cBeats cAnds
       bpm_ = if cAnds then cBpm * 2 else cBpm
   sounds <- genSounds config words_
-  play config{ cBpm = bpm_ } (f words_) sounds
+  play config{ cBpm = bpm_ } (modifyWords words_) sounds
 
 metronome1, metronome :: Config -> IO ()
 metronome1 = (`metronome_` id)

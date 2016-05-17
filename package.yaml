@@ -19,5 +19,6 @@ dependencies:
 
 executables:
   metronome:
+    ghc-options: -threaded -Wall -rtsopts -with-rtsopts=-N
     source-dirs:      src
     main:             Main.hs

@@ -107,6 +107,6 @@ metronome = (`metronome_` cycle)
 
 main :: IO ()
 main = do
-  options <- getRecord "Metronome"
-  let config = fromOpts options
+  options_ <- getRecord "Metronome"
+  let config = fromOpts options_
   metronome config

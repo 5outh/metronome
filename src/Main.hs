@@ -65,7 +65,6 @@ bpmWait :: Int -> IO a -> IO ()
 bpmWait bpm_ io = do
   threadId <- forkIO (void io)
   delaySeconds (60 / fromIntegral bpm_)
-  killThread threadId
 
 -- /tmp/.sounds/n-120-ands?.aiff
 fileName :: Config -> Text -> Text
@@ -79,7 +78,6 @@ genSounds config@Config{..} words_ = do
   unless exists $ mkdir "/tmp/.sounds"
 
   M.fromList <$> mapM sayFile (nub words_)
-
   where sayFile word = do
           let file = fileName config word
           void $ say ["--output-file=" <> file, "--rate=600"] word
@@ -105,5 +103,10 @@ metronome1, metronome :: Config -> IO ()
 metronome1 = (`metronome_` id)
 metronome = (`metronome_` cycle)
 
+-- Ok now to turn this into a useful program
+
 main :: IO ()
-main = getRecord "Metronome" >>= metronome . fromOpts
+main = do
+  options <- getRecord "Metronome"
+  let config = fromOpts options
+  metronome config

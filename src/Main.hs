@@ -24,7 +24,7 @@ getSubdivisionWords :: Subdivision -> [Text]
 getSubdivisionWords = T.words . \case
   1 -> ""
   2 -> "n"
-  3 -> "uh let"
+  3 -> "ta tee"
   4 -> "e n uh"
   5 -> "ka ta ka ta"
   6 -> "ta la ta li ta"

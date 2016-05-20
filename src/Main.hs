@@ -18,12 +18,6 @@ import qualified Data.Map as M
 import Data.Maybe
 import Control.Monad.Trans.Reader
 
--- Idea: Do _anything_ on a beat
--- This could be:
--- Saying a word from the command line
--- Sending a message to a chan
--- You know, doing all kinda stuff
-
 getSubdivisionWords :: Subdivision -> [Text]
 getSubdivisionWords = T.words . \case
   1 -> ""
@@ -86,36 +80,20 @@ genSounds config@Config{..} words_ = do
           void $ say ["--output-file=" <> file, "--rate=600"] word
           pure (word, file)
 
-play :: Config -> [Text] -> ReaderT SoundMap IO ()
-play Config{..} words_ = do
-  sounds <- ask
-  liftIO $ forM_ words_ $ \word ->
-    case M.lookup word sounds of
+sayMetronome :: ReaderT SayEnv IO ()
+sayMetronome = do
+  SayEnv{..} <- ask
+  liftIO $ forM_ sayWords $ \word ->
+    case M.lookup word saySounds of
       Nothing -> error "sound file not found!"
-      Just sound_ -> bpmWait cBpm (forkIO . void $ afplay sound_)
+      Just sound_ -> bpmWait (cBpm sayConfig) (forkIO . void $ afplay sound_)
 
--- The idea here will be to generate .aiff files from `say`
--- into a shared folder, then call afplay the-aiff-file when necessary
--- metronome_ :: Config -> ([Text] -> [Text]) -> IO ()
--- metronome_ config@Config{..} modifyWords = do
---   let words_ = beatCycle cBeats cSubdivision
---       bpm_ = cBpm * cSubdivision
---   sounds <- genSounds config words_
---   play config{ cBpm = bpm_ } (modifyWords words_) sounds
-
--- metronome1, metronome :: Config -> IO ()
--- metronome1 = (`metronome_` id)
--- metronome = (`metronome_` cycle)
-
-sayMetronome :: Metronome (ReaderT SoundMap IO) ()
-sayMetronome = \config -> do
+initSayMetronome :: Config -> IO SayEnv
+initSayMetronome config@Config{..} = do
   let words_ = beatCycle cBeats cSubdivision
       bpm_ = cBpm * cSubdivision
   sounds <- genSounds config words_
-  play config{ cBpm = bpm_ } (cycle words)
-
-runSayMetronome :: Config -> IO ()
-runSayMetronome config = 
+  pure (SayEnv sounds (cycle words_) config{ cBpm = bpm_ })
 
 -- Ok now to turn this into a useful program
 
@@ -123,6 +101,5 @@ main :: IO ()
 main = do
   options_ <- getRecord "Metronome"
   let config = fromOpts options_
-  let m = runMetronome sayMetronome
-  -- TODO: Need sounds
-  runReaderT (m config) sounds
+  env_ <- initSayMetronome config
+  runReaderT sayMetronome env_

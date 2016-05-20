@@ -8,7 +8,6 @@ import qualified Data.Map as M
 
 type SoundMap = M.Map Text Text
 type Subdivision = Int
-type Metronome m a = Config -> m a
 
 data Options = Options
   { beats :: Maybe Int
@@ -22,6 +21,12 @@ data Config = Config
   { cBeats :: !Int
   , cBpm :: !Int
   , cSubdivision :: !Subdivision
+  } deriving (Show, Eq)
+
+data SayEnv = SayEnv
+  { saySounds :: SoundMap
+  , sayWords :: [Text]
+  , sayConfig :: Config
   } deriving (Show, Eq)
 
 defaultConfig :: Config

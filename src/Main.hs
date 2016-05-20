@@ -5,6 +5,7 @@
 {-# LANGUAGE LambdaCase #-}
 module Main where
 
+import Metronome.Types
 import Options.Generic
 import System.Directory
 import Control.Concurrent
@@ -15,10 +16,13 @@ import Data.Text (pack)
 import qualified Data.Text as T
 import qualified Data.Map as M
 import Data.Maybe
+import Control.Monad.Trans.Reader
 
-type SoundMap = M.Map Text Text
-
-type Subdivision = Int
+-- Idea: Do _anything_ on a beat
+-- This could be:
+-- Saying a word from the command line
+-- Sending a message to a chan
+-- You know, doing all kinda stuff
 
 getSubdivisionWords :: Subdivision -> [Text]
 getSubdivisionWords = T.words . \case
@@ -30,23 +34,6 @@ getSubdivisionWords = T.words . \case
   6 -> "ta la ta li ta"
   7 -> "ka di mi ta ka ta"
   _ -> error "Subdivisions greater than 7 are unsupported."
-
-data Options = Options
-  { beats :: Maybe Int
-  , bpm :: Maybe Int
-  , subdivision :: Maybe Subdivision
-  } deriving (Generic, Show, Eq)
-
-instance ParseRecord Options
-
-data Config = Config
-  { cBeats :: !Int
-  , cBpm :: !Int
-  , cSubdivision :: !Subdivision
-  } deriving (Show, Eq)
-
-defaultConfig :: Config
-defaultConfig = Config 4 120 1
 
 fromOpts :: Options -> Config
 fromOpts Options{..} =
@@ -99,25 +86,36 @@ genSounds config@Config{..} words_ = do
           void $ say ["--output-file=" <> file, "--rate=600"] word
           pure (word, file)
 
-play :: Config -> [Text] -> SoundMap -> IO ()
-play Config{..} words_ sounds =
-  forM_ words_ $ \word ->
+play :: Config -> [Text] -> ReaderT SoundMap IO ()
+play Config{..} words_ = do
+  sounds <- ask
+  liftIO $ forM_ words_ $ \word ->
     case M.lookup word sounds of
       Nothing -> error "sound file not found!"
       Just sound_ -> bpmWait cBpm (forkIO . void $ afplay sound_)
 
 -- The idea here will be to generate .aiff files from `say`
 -- into a shared folder, then call afplay the-aiff-file when necessary
-metronome_ :: Config -> ([Text] -> [Text]) -> IO ()
-metronome_ config@Config{..} modifyWords = do
+-- metronome_ :: Config -> ([Text] -> [Text]) -> IO ()
+-- metronome_ config@Config{..} modifyWords = do
+--   let words_ = beatCycle cBeats cSubdivision
+--       bpm_ = cBpm * cSubdivision
+--   sounds <- genSounds config words_
+--   play config{ cBpm = bpm_ } (modifyWords words_) sounds
+
+-- metronome1, metronome :: Config -> IO ()
+-- metronome1 = (`metronome_` id)
+-- metronome = (`metronome_` cycle)
+
+sayMetronome :: Metronome (ReaderT SoundMap IO) ()
+sayMetronome = \config -> do
   let words_ = beatCycle cBeats cSubdivision
       bpm_ = cBpm * cSubdivision
   sounds <- genSounds config words_
-  play config{ cBpm = bpm_ } (modifyWords words_) sounds
+  play config{ cBpm = bpm_ } (cycle words)
 
-metronome1, metronome :: Config -> IO ()
-metronome1 = (`metronome_` id)
-metronome = (`metronome_` cycle)
+runSayMetronome :: Config -> IO ()
+runSayMetronome config = 
 
 -- Ok now to turn this into a useful program
 
@@ -125,4 +123,6 @@ main :: IO ()
 main = do
   options_ <- getRecord "Metronome"
   let config = fromOpts options_
-  metronome config
+  let m = runMetronome sayMetronome
+  -- TODO: Need sounds
+  runReaderT (m config) sounds

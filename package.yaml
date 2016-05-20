@@ -16,9 +16,17 @@ dependencies:
   - containers
   - directory
   - optparse-generic
+  - mtl
+  - transformers
 
 executables:
   metronome:
     ghc-options: -threaded -Wall -rtsopts -with-rtsopts=-N
     source-dirs:      src
+    dependencies:
+      - metronome
     main:             Main.hs
+
+library:
+  source-dirs: lib
+  exposed-modules: Metronome.Types

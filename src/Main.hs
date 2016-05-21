@@ -12,3 +12,4 @@ main = do
   options_ <- getRecord "Metronome"
   let config = fromOpts options_
   initSayMetronome config >>= runReaderT sayMetronome
+

@@ -33,3 +33,4 @@ library:
   exposed-modules:
     - Metronome.Types
     - Metronome.Say
+    - Metronome.Common

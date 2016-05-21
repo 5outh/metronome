@@ -29,4 +29,7 @@ executables:
 
 library:
   source-dirs: lib
-  exposed-modules: Metronome.Types
+  ghc-options: -threaded -Wall -rtsopts -with-rtsopts=-N
+  exposed-modules:
+    - Metronome.Types
+    - Metronome.Say
